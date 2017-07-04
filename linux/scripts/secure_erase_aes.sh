@@ -1,12 +1,22 @@
 #!/bin/sh
 
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+
 if [ "$1" = "--help" ] ; then
     echo "$0 [FLAGS]..."
-    echo "FLAGS are:"
-    echo -e "\t-path /PATH/TO/DRIVE"
-    echo -e "\t-pass NR_OF_PASSES"
     echo
-    echo "e.g. '$0 -path /dev/sda -pass 3'"
+    echo "FLAGS are:"
+    echo -e "\n     ${BOLD}--path${NORMAL}=PATH_TO_DRIVE"
+    echo -e "           Path to drive to erase."
+    echo -e "\n     ${BOLD}--pass${NORMAL}=N"
+    echo -e "           Number of passes of overwriting. The last pass is always a zero fill, other N-1 are random fills. Minimum value is 1, default value is 3."
+    echo -e "\n     ${BOLD}--skip-last-pass${NORMAL}"
+    echo -e "           Number of passes of overwriting. The last pass is always a zero fill, other N-1 are random fills. Minimum value is 1, default value is 3."
+    echo
+    echo "e.g. '$0 --path=/dev/sda --pass=3'"
     exit
 fi
 
@@ -21,24 +31,23 @@ if [ $# -eq 0 ] ; then
     exit -2
 fi
 
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
 DRIVE_PATH=""
 PASSES=3
+SKIP_LAST=0
 
-for ((index = 1; index < ${#}; index++)) ; do
-    opt=${!index}
-    if [ $opt = '-path' ] ; then
-        index=$((index+1))
-        DRIVE_PATH=${!index}
-    elif [ $opt = '-pass' ] ; then
-        index=$((index+1))
-        PASSES=${!index}
+for ((index = 1; index <= ${#}; index++)) ; do
+    opt=$(echo ${!index} | cut -d"=" -f 1)
+    val=$(echo ${!index} | cut -d"=" -f 2)
+    if [ $opt = '--path' ] ; then
+        DRIVE_PATH=${val}
+    elif [ $opt = '--pass' ] ; then
+        PASSES=${val}
         if [[ $PASSES -lt 1 ]] ; then
             echo -e "Number of passes must be at least 1 (3 is default)!\n" > /dev/stderr
             exit -3
         fi
+    elif [ $opt = '--skip-last-pass' ] ; then
+        SKIP_LAST=1
     fi
 done
 
@@ -59,7 +68,7 @@ else
     echo "You asked for it!"
 fi
 
-echo "Erasing ${DRIVE_PATH}..."
+echo "Erasing '${DRIVE_PATH}'..."
 
 if [[ $PASSES -eq 1 ]] ; then
     echo -e "${RED}Warning!${NC} The drive will be filled only with zeros and secure erase isn't guaranteed at all!"
@@ -75,10 +84,14 @@ fi
 for((pass = 1; pass < ${PASSES}; pass++)) ; do
     echo "PASS ${pass} - random fill"
     openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/random bs=128 count=1 2>/dev/null | base64)" -nosalt </dev/zero \
-        | dd status=progress bs=4M of=${DRIVE_PATH} oflag=direct conv=fdatasync
+        | dd status=progress bs=16M of=${DRIVE_PATH} iflag=fullblock oflag=direct conv=fdatasync
 done
 
-echo "PASS ${PASSES} - zero fill"
-# Zero data fill
-dd status=progress bs=4M if=/dev/zero of=${DRIVE_PATH} oflag=direct conv=fdatasync
+if [ $SKIP_LAST -eq 0 ] ; then
+    echo "PASS ${PASSES} - zero fill"
+    # Zero data fill
+    dd status=progress bs=16M if=/dev/zero of=${DRIVE_PATH} iflag=fullblock oflag=direct conv=fdatasync
+fi
+
+echo -e "\nPath '${DRIVE_PATH}' has been completely overwritten!\n"
 
