@@ -1,7 +1,5 @@
 #!/bin/sh
 
-echo
-
 if [ "$1" = "--help" ] ; then
     echo "$0 [FLAGS]..."
     echo "FLAGS are:"
@@ -13,21 +11,20 @@ if [ "$1" = "--help" ] ; then
 fi
 
 if [ "$EUID" -ne 0 ] ; then
-    echo "Please run as root"
+    echo -e "Please run as root\n"
     exit -1
 fi
 
-ERR_CODE_ORD=$((ERR_CODE_ORD - 1))
 if [ $# -eq 0 ] ; then
-    echo "Missing path!" > /dev/stderr
-    echo "Try '$0 --help' for more information." > /dev/stderr
+    echo -e "Missing path!" > /dev/stderr
+    echo -e "Try '$0 --help' for more information.\n" > /dev/stderr
     exit -2
 fi
 
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-DRIVE_PATH=$1 # /dev/sd"X"
+DRIVE_PATH=""
 PASSES=3
 
 for ((index = 1; index < ${#}; index++)) ; do
@@ -39,28 +36,39 @@ for ((index = 1; index < ${#}; index++)) ; do
         index=$((index+1))
         PASSES=${!index}
         if [[ $PASSES -lt 1 ]] ; then
-            echo "Number of passes must be at least 1 (3 is default)!" > /dev/stderr
+            echo -e "Number of passes must be at least 1 (3 is default)!\n" > /dev/stderr
             exit -3
         fi
     fi
 done
+
+if [ "$DRIVE_PATH" = "" ] ; then
+    echo -e "Missing path!" > /dev/stderr
+    echo -e "Try '$0 --help' for more information.\n" > /dev/stderr
+    exit -2
+fi
 
 echo -e "${RED}This will overwrite all data in 'path'!${NC}"
 echo -n "Please confirm [y/n]: "
 
 read opt
 if [ "$opt" != "y" ] && [ "$opt" != "Y" ] ; then
-    echo "OK, bye..."
+    echo -e "OK, bye...\n"
+    exit
 else
     echo "You asked for it!"
 fi
 
-echo
 echo "Erasing ${DRIVE_PATH}..."
 
 if [[ $PASSES -eq 1 ]] ; then
-    echo "Warning! Drive will only fill with zeros and secure erase isn't guaranteed at all! Press any key to continue..."
-    read -n 1 x
+    echo -e "${RED}Warning!${NC} The drive will be filled only with zeros and secure erase isn't guaranteed at all!"
+    echo -en "Do you want to continue? [y/n]: "
+    read opt
+    if [ "$opt" != "y" ] && [ "$opt" != "Y" ] ; then
+        echo -e "OK, bye...\n"
+        exit
+    fi
 fi
 
 # Random data fill
