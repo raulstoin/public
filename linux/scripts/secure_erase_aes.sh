@@ -21,7 +21,7 @@ if [ "$1" = "--help" ] ; then
 fi
 
 if [ "$EUID" -ne 0 ] ; then
-    echo -e "Please run as root\n"
+    echo -e "This must be run as root!\n"
     exit -1
 fi
 
@@ -94,4 +94,3 @@ if [ $SKIP_LAST -eq 0 ] ; then
 fi
 
 echo -e "\nPath '${DRIVE_PATH}' has been completely overwritten!\n"
-
