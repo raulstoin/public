@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [[ $EUID != 0 ]] ; then
     echo -e "This must be run as root!\n"
